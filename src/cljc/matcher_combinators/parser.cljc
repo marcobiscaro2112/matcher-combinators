@@ -9,74 +9,37 @@
 (extend-protocol
   core/Matcher
 
-  ;; function as predicate
   function
-  (-match [this actual]
-    (core/match (matchers/pred this) actual))
-
-  ;; equals base types
-  nil
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
-
-  number
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
-
-  string
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
-
-  boolean
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
-
-  Keyword
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
-
-  Symbol
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
-
-  UUID
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
+  (-matcher-for
+    ([_] matchers/pred))
 
   goog.Uri
-  (-match [this actual]
-    (core/match (matchers/cljs-uri this) actual))
+  (-matcher-for
+    ([_] matchers/cljs-uri))
 
-  js/Date
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
-
-  Var
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
-
-  ;; equals nested types
-  Cons
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
-
-  Repeat
-  (-match [this actual]
-    (core/match (matchers/equals this) actual))
+  js/RegExp
+  (-matcher-for
+    ([_] matchers/regex))
 
   default
   (-match [this actual]
-    (cond
-      (satisfies? IMap this)
-      (core/match (matchers/embeds this) actual)
+    (core/match ((core/-matcher-for this) this) actual))
+  (-matcher-for
+    ([this]
+     (cond
+       (satisfies? IMap this)
+       matchers/embeds
 
-      (or (satisfies? ISet this)
-          (satisfies? ISequential this))
-      (core/match (matchers/equals this) actual)))
+       (or (satisfies? ISet this)
+           ; why js/Set does not satisfy ISet is beyond me
+           (= js/Set (type this)))
+       matchers/set-equals
 
-  js/RegExp
-  (-match [this actual]
-    (core/match (matchers/regex this) actual))))
+       ;; everything else uses equals by default
+       :else
+       matchers/equals))
+    ([this t->m]
+     (matchers/lookup-matcher this t->m)))))
 
 #?(:clj (do
 (defmacro mimic-matcher [matcher t]
