@@ -407,7 +407,7 @@
   matching works just fine with java.util.Set as well."
   [s]
   #?(:clj  (or (set? s) (instance? java.util.Set s))
-     :cljs (set? s)))
+     :cljs (or (set? s) (instance? js/Set s))))
 
 (defrecord SetEquals [expected accept-seq?]
   Matcher
