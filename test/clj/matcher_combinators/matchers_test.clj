@@ -234,8 +234,8 @@
 
 (deftest matcher-for-special-cases
   (testing "matcher for a fn is pred"
-    (is (= (class (m/pred (fn [])))
-           (class (m/matcher-for (fn []))))))
+    (is (= m/pred
+           (m/matcher-for (fn [])))))
   (testing "matcher for a map is embeds"
     (is (= m/embeds
            (m/matcher-for {}))))

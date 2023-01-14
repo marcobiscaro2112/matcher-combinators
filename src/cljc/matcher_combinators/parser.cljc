@@ -104,7 +104,7 @@
 (extend-type clojure.lang.Fn
   core/Matcher
   (-matcher-for
-    ([this] (matchers/pred this))
-    ([this t->m] (matchers/pred this)))
+    ([_] matchers/pred)
+    ([_ _] matchers/pred))
   (-match [this actual]
     (core/match (matchers/pred this) actual)))))
