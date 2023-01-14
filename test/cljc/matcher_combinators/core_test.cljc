@@ -11,8 +11,7 @@
             [matcher-combinators.result :as result]
             [matcher-combinators.standalone :as standalone]
             [matcher-combinators.test :refer [match?]]
-            [matcher-combinators.test-helpers :as test-helpers])
-  (:import (clojure.lang Associative)))
+            [matcher-combinators.test-helpers :as test-helpers]))
 
 (use-fixtures :once test-helpers/instrument)
 
@@ -30,13 +29,30 @@
      {::result/value (model/->Mismatch a b)}
      (core/match (matchers/equals a) b))))
 
+#?(:clj
+   (deftype MapLikeThing [m]
+     clojure.lang.Associative
+     (containsKey [_ k] (contains? m k))
+     (valAt [_ k] (get m k))
+     (valAt [_ k not-found] (get m k not-found))
+     (seq [_] (seq m))
+     (equiv [_ _] false)
+     (cons [_ o] (cons o m))))
+
+#?(:cljs
+   (deftype MapLikeThing [m]
+     IAssociative
+     (-contains-key? [_ k] (contains? m k))
+     ILookup
+     (-lookup [_ k] (get m k))
+     (-lookup [_ k not-found] (get m k not-found))
+     ISeqable
+     (-seq [_] (seq m))
+     ICollection ;
+     (-conj [_ o] (conj m o))))
+
 (deftest map-matchers-support-map-like-actual-values
-  (let [map-like (reify Associative
-                   (seq [_] (map identity {:a 1}))
-                   (valAt [_ k] (get {:a 1} k))
-                   (valAt [_ k _] (get {:a 1} k))
-                   (equiv [_ _] false)
-                   (cons [_ _]))]
+  (let [map-like (MapLikeThing. {:a 1})]
     (testing "map-like test value associative, but not a map or sequential"
       (is (associative? map-like))
       (is (not (map? map-like)))
@@ -112,9 +128,10 @@
          (core/-matcher-for {:this :map} [])))
   (is (= matchers/equals
          (core/-matcher-for {:this :map} [map? matchers/equals])))
-  (testing "legacy API using type instead of predicate"
-    (is (= matchers/equals (core/-matcher-for {:this :map}
-                                              {clojure.lang.IPersistentMap matchers/equals})))))
+  #?(:clj
+     (testing "legacy API using type instead of predicate"
+       (is (= matchers/equals (core/-matcher-for {:this :map}
+                                                 {clojure.lang.IPersistentMap matchers/equals}))))))
 
 (deftest false-check-for-sets
   (testing "gracefully handle matching `false` values"
@@ -299,13 +316,13 @@
              [[1 5] 21]))))
 
   (testing "sequence type is preserved in mismatch output"
-    (is (true? (instance? (class (vector)) (-> (matchers/equals [(matchers/equals [(matchers/equals 1)])])
-                                               (core/match [[2]])
-                                               ::result/value))))
+    (is (true? (instance? (type (vector)) (-> (matchers/equals [(matchers/equals [(matchers/equals 1)])])
+                                              (core/match [[2]])
+                                              ::result/value))))
 
-    (is (true? (instance? (class (list 'placeholder)) (-> (matchers/equals [(matchers/equals [(matchers/equals 1)])])
-                                                          (core/match (list [2]))
-                                                          ::result/value)))))
+    (is (true? (instance? (type (list 'placeholder)) (-> (matchers/equals [(matchers/equals [(matchers/equals 1)])])
+                                                         (core/match (list [2]))
+                                                         ::result/value)))))
 
   (testing "nesting in-any-order matchers"
     (is (= {::result/type   :match
