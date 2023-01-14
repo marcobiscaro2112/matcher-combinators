@@ -35,8 +35,8 @@
             "clean-ns-fix"    ["clojure-lsp" "clean-ns"]
             "lint"            ["do" ["format"] ["clean-ns"]]
             "lint-fix"        ["do" ["format-fix"] ["clean-ns-fix"]]
-            "test-phantom"    ["doo" "phantom" "test"]
-            "test-advanced"   ["doo" "phantom" "advanced-test"]
+            "test-chrome"     ["doo" "chrome-headless" "test" "once"]
+            "test-ff"         ["doo" "firefox-headless" "test" "once"]
             "test-node-watch" ["doo" "node" "node-test"]
             "test-node"       ["doo" "node" "node-test" "once"]}
   :cljsbuild {:builds [{:id "test"
