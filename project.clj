@@ -39,28 +39,18 @@
             "test-advanced"   ["doo" "phantom" "advanced-test"]
             "test-node-watch" ["doo" "node" "node-test"]
             "test-node"       ["doo" "node" "node-test" "once"]}
-  ;; Below, :process-shim false is workaround for <https://github.com/bensu/doo/pull/141>
   :cljsbuild {:builds [{:id "test"
-                        :source-paths ["src/cljs" "test/cljs"]
+                        :source-paths ["src/cljs" "src/cljc" "test/cljs" "test/cljc"]
                         :compiler {:output-to "target/out/test.js"
                                    :output-dir "target/out"
                                    :main matcher-combinators.doo-runner
-                                   :optimizations :none
-                                   :process-shim false}}
-                       {:id "advanced-test"
-                        :source-paths ["src/cljs" "test/cljs"]
-                        :compiler {:output-to "target/advanced_out/test.js"
-                                   :output-dir "target/advanced_out"
-                                   :main matcher-combinator.doo-runner
-                                   :optimizations :advanced
-                                   :process-shim false}}
+                                   :optimizations :none}}
                        ;; Node.js requires :target :nodejs, hence the separate
                        ;; build configuration.
                        {:id "node-test"
-                        :source-paths ["src/cljs" "test/cljs"]
+                        :source-paths ["src/cljs" "src/cljc" "test/cljs" "test/cljc"]
                         :compiler {:output-to "target/node_out/test.js"
                                    :output-dir "target/node_out"
                                    :main matcher-combinators.doo-runner
                                    :optimizations :none
-                                   :target :nodejs
-                                   :process-shim false}}]})
+                                   :target :nodejs}}]})
