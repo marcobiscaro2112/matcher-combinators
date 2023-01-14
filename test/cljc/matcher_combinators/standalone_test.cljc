@@ -2,15 +2,15 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [matcher-combinators.matchers :as m]
             [matcher-combinators.standalone :as standalone]
-            [orchestra.spec.test :as spec.test]))
+            [matcher-combinators.test-helpers :as test-helpers]))
 
-(use-fixtures :once
-  (fn [f]
-    (spec.test/instrument)
-    (f)
-    (spec.test/unstrument)))
+(use-fixtures :once test-helpers/instrument)
 
-(def java-set (doto (new java.util.HashSet) (.add 1) (.add 2)))
+#?(:clj
+   (def native-set (doto (new java.util.HashSet) (.add 1) (.add 2))))
+
+#?(:cljs
+   (def native-set (doto (new js/Set) (.add 1) (.add 2))))
 
 (deftest test-match
   (testing "parser defaults"
@@ -18,15 +18,16 @@
     (is (= :match    (:match/result (standalone/match {:a odd?} {:a 1 :b 2}))))
     (is (= :mismatch (:match/result (standalone/match 37 42))))
     (is (= :mismatch (:match/result (standalone/match {:a odd?} {:a 2 :b 2}))))
-    (is (= :match (:match/result (standalone/match #{1 2} java-set))))
-    (is (= :match (:match/result (standalone/match java-set #{1 2})))))
+    (is (= :match (:match/result (standalone/match #{1 2} native-set))))
+    (is (= :match (:match/result (standalone/match native-set #{1 2})))))
 
   (testing "explicit matchers"
     (is (= :match    (:match/result (standalone/match (m/embeds {:a odd?}) {:a 1 :b 2}))))
     (is (= :match    (:match/result (standalone/match (m/in-any-order [1 2]) [1 2]))))
     (is (= :mismatch (:match/result (standalone/match (m/in-any-order [1 2]) [1 3]))))
-    (is (= :match (:match/result (standalone/match (m/set-equals [odd? even?]) java-set))))
-    (is (= :match (:match/result (standalone/match (m/set-embeds [odd? even?]) java-set)))))
+    (is (= :match (:match/result (standalone/match (m/set-equals [odd? even?]) native-set))))
+    (is (= :match (:match/result (standalone/match (m/set-embeds [odd?]) native-set))))
+    (is (= :match (:match/result (standalone/match (m/set-embeds native-set) #{1 2 3 4})))))
 
   ;; TODO (dchelimsky,2020-03-11): consider making it a plain datastructure
   (testing ":match/detail binds to a Mismatch object"
