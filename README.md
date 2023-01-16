@@ -294,8 +294,21 @@ To run Clojure tests:
 lein midje
 ```
 
-To run Clojurescript tests:
+For Clojurescript tests, Node.js is required. To run against Node.js backend:
 
 ```
 lein test-node
+```
+
+To run it inside a browser:
+
+```
+npm install -g karma-cli
+npm install
+```
+
+```
+lein test-ff
+# or
+lein test-chrome
 ```
