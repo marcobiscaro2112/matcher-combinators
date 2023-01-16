@@ -9,17 +9,15 @@
 (extend-protocol
   core/Matcher
 
-  function
-  (-matcher-for
-    ([_] matchers/pred))
-
   goog.Uri
   (-matcher-for
     ([_] matchers/cljs-uri))
 
-  js/RegExp
+  js/Set
+  ;; for some reason, js/Set does not satisfy ISet, so we need to use an explicit matcher for it,
+  ;; otherwise it would fall into the default matchers/equals case
   (-matcher-for
-    ([_] matchers/regex))
+    ([_] matchers/set-embeds))
 
   default
   (-match [this actual]
@@ -27,13 +25,14 @@
   (-matcher-for
     ([this]
      (cond
-       (satisfies? IMap this)
+       (fn? this)
+       matchers/pred
+
+       (map? this)
        matchers/embeds
 
-       (or (satisfies? ISet this)
-           ; why js/Set does not satisfy ISet is beyond me
-           (= js/Set (type this)))
-       matchers/set-equals
+       (regexp? this)
+       matchers/regex
 
        ;; everything else uses equals by default
        :else

@@ -1,7 +1,9 @@
 (ns matcher-combinators.matchers-test
-  (:require [clojure.math.combinatorics :as combo]
+  (:require #?(:cljs [matcher-combinators.model :refer [InvalidMatcherType Mismatch Missing]])
+            [clojure.math.combinatorics :as combo]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.test.check.clojure-test :refer [defspec]]
+            [clojure.edn :as edn]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [matcher-combinators.core :as c]
@@ -9,15 +11,23 @@
             [matcher-combinators.result :as result]
             [matcher-combinators.test :refer [match?]]
             [matcher-combinators.test-helpers :as test-helpers :refer [abs-value-matcher]])
-  (:import [matcher_combinators.model Mismatch Missing InvalidMatcherType]))
+  #?(:clj (:import [matcher_combinators.model InvalidMatcherType Mismatch Missing])))
 
 (use-fixtures :once test-helpers/instrument)
 
-(def now (java.time.LocalDateTime/now))
-(def an-id-string "67b22046-7e9f-46b2-a3b9-e68618242864")
-(def an-id (java.util.UUID/fromString an-id-string))
-(def another-id (java.util.UUID/fromString "8f488446-374e-4975-9670-35ca0a633da1"))
-(def response-time (java.time.LocalDateTime/now))
+#?(:clj
+   (do
+     (def now (java.time.LocalDateTime/now))
+     (def an-id-string "67b22046-7e9f-46b2-a3b9-e68618242864")
+     (def another-id (java.util.UUID/fromString "8f488446-374e-4975-9670-35ca0a633da1"))
+     (def response-time (java.time.LocalDateTime/now))))
+
+#?(:cljs
+   (do
+     (def now (new js/Date))
+     (def an-id-string "67b22046-7e9f-46b2-a3b9-e68618242864")
+     (def another-id "8f488446-374e-4975-9670-35ca0a633da1")
+     (def response-time (new js/Date))))
 
 (def nested-map
   {:id {:type :user-id
@@ -37,11 +47,11 @@
 (def b-nested-map (assoc-in nested-map [:model] "curitiba"))
 
 (defn mismatch? [actual]
-  (instance? Mismatch actual))
+  (= Mismatch (type actual)))
 (defn missing? [actual]
-  (instance? Missing actual))
+  (= Missing (type actual)))
 (defn invalid-type? [actual]
-  (instance? InvalidMatcherType actual))
+  (= InvalidMatcherType (type actual)))
 
 (defn one-mismatch? [mismatch-list]
   (= 1 (count (filter #(or (mismatch? %) (missing? %)) mismatch-list))))
@@ -125,34 +135,52 @@
                          {:two 1
                           :one "hello, world"})))))
 
-(deftest java-classes
-  (testing "matching"
-    (is (match? {::result/type :match
-                 ::result/value java.lang.String
-                 ::result/weight 0}
-                (c/match (m/equals java.lang.String)
-                         java.lang.String))))
-  (testing "mismatching"
-    (is (match? {::result/type :mismatch
-                 ::result/value {:actual   java.lang.String
-                                 :expected java.lang.Number}
-                 ::result/weight 1}
-                (c/match (m/equals java.lang.Number)
-                         java.lang.String)))))
+#?(:clj
+   (deftest java-classes
+     (testing "matching"
+       (is (match? {::result/type   :match
+                    ::result/value  java.lang.String
+                    ::result/weight 0}
+                   (c/match (m/equals java.lang.String)
+                            java.lang.String))))
+     (testing "mismatching"
+       (is (match? {::result/type   :mismatch
+                    ::result/value  {:actual   java.lang.String
+                                     :expected java.lang.Number}
+                    ::result/weight 1}
+                   (c/match (m/equals java.lang.Number)
+                            java.lang.String))))))
 
-(deftest java-primitives
-  (testing "byte-arrays"
-    (let [a (byte-array [(byte 0x43) (byte 0x42)])
-          b (byte-array [(byte 0x42) (byte 0x43)])]
-      (is (match? {::result/type :match
-                   ::result/value a
-                   ::result/weight 0}
-                  (c/match (m/equals a) a)))
-      (is (match? {::result/type :mismatch
-                   ::result/value {:actual   b
-                                   :expected a}
-                   ::result/weight 1}
-                  (c/match (m/equals a) b))))))
+#?(:cljs
+   (deftest js-types
+     (testing "matching"
+       (is (match? {::result/type   :match
+                    ::result/value  js/Date
+                    ::result/weight 0}
+                   (c/match (m/equals js/Date)
+                            js/Date))))
+     (testing "mismatching"
+       (is (match? {::result/type   :mismatch
+                    ::result/value  {:actual   js/Error
+                                     :expected js/Date}
+                    ::result/weight 1}
+                   (c/match (m/equals js/Date)
+                            js/Error))))))
+
+#?(:clj
+   (deftest java-primitives
+     (testing "byte-arrays"
+       (let [a (byte-array [(byte 0x43) (byte 0x42)])
+             b (byte-array [(byte 0x42) (byte 0x43)])]
+         (is (match? {::result/type   :match
+                      ::result/value  a
+                      ::result/weight 0}
+                     (c/match (m/equals a) a)))
+         (is (match? {::result/type   :mismatch
+                      ::result/value  {:actual   b
+                                       :expected a}
+                      ::result/weight 1}
+                     (c/match (m/equals a) b)))))))
 
 (defrecord Point [x y])
 (defrecord BluePoint [x y])
@@ -220,12 +248,13 @@
                   (c/match (m/equals a) b))))))
 
 (defspec matcher-for-most-cases
-  {:doc "matchers/equals is the default matcher for everything but functions, regexen, and maps."
+  {:doc "matchers/equals is the default matcher for everything but functions, regexes, and maps."
    :num-tests 1000
    :max-size  10}
   (prop/for-all [v (gen/such-that
                     (fn [v] (and (not (map? v))
-                                 (not (instance? java.util.regex.Pattern v))
+                                 (not (instance? #?(:clj java.util.regex.Pattern)
+                                                 #?(:cljs js/RegExp) v))
                                  (not (fn? v))))
                     gen/any)]
     (= m/equals
@@ -235,7 +264,10 @@
 (deftest matcher-for-special-cases
   (testing "matcher for a fn is pred"
     (is (= m/pred
-           (m/matcher-for (fn [])))))
+           (m/matcher-for (fn []))))
+    ;; in cljs, this is a different thing: (MetaFn)
+    (is (= m/pred
+           (m/matcher-for (with-meta (fn []) {:some-meta true})))))
   (testing "matcher for a map is embeds"
     (is (= m/embeds
            (m/matcher-for {}))))
@@ -263,10 +295,11 @@
       (is (match? (m/match-with [map? m/equals]
                                 {:a :b})
                   {:a :b}))
-      (testing "legacy API support (map of type to matcher)"
-        (is (match? (m/match-with {clojure.lang.IPersistentMap m/equals}
-                                  {:a :b})
-                    {:a :b}))))
+      #?(:clj
+         (testing "legacy API support (map of type to matcher)"
+           (is (match? (m/match-with {clojure.lang.IPersistentMap m/equals}
+                                     {:a :b})
+                       {:a :b})))))
     (testing "failing case with equals override"
       (is (no-match? (m/match-with [map? m/equals]
                                    {:a :b})
@@ -341,18 +374,19 @@
 (def gen-processable-double
   (gen/double* {:infinite? false :NaN? false}))
 
-(def gen-bigdec
-  (gen/fmap #(BigDecimal/valueOf %) gen-processable-double))
+#?(:clj
+   (def gen-bigdec
+     (gen/fmap #(BigDecimal/valueOf ^double %) gen-processable-double)))
 
 (defspec within-delta-common-case
   {:doc       "works for ints, doubles, and bigdecs as delta, expected, or actual"
    :max-size  10}
   (prop/for-all [delta    (gen/one-of [gen/small-integer
                                        gen-processable-double
-                                       gen-bigdec])
+                                       #?(:clj gen-bigdec)])
                  expected (gen/one-of [gen/small-integer
                                        gen-processable-double
-                                       gen-bigdec])]
+                                       #?(:clj gen-bigdec)])]
     (c/indicates-match?
      (c/match
        (m/within-delta delta expected)
@@ -400,9 +434,9 @@
   (testing "without via things are annoying"
     (let [result {:payloads ["{:foo :bar :baz :qux}"]}]
       (is (match? {:payloads [{:foo :bar}]}
-                  (update result :payloads (partial map read-string))))))
+                  (update result :payloads (partial map edn/read-string))))))
   (testing "normal usage"
-    (is (match? {:payloads [(m/via read-string {:foo :bar})]}
+    (is (match? {:payloads [(m/via edn/read-string {:foo :bar})]}
                 {:payloads ["{:foo :bar :baz :qux}"]})))
 
   (testing "via + match-with allows pre-processing `actual` before applying matching"
@@ -415,7 +449,7 @@
     (is (match? {::result/type   :mismatch
                  ::result/value  {:payloads [{:foo mismatch?}]}
                  ::result/weight number?}
-                (c/match {:payloads [(m/via read-string {:foo :qux})]}
+                (c/match {:payloads [(m/via edn/read-string {:foo :qux})]}
                          {:payloads ["{:foo :bar}"]}))))
 
   (testing "erroring shows `(mismatch (expected (via some-fn expected-data))
@@ -423,5 +457,5 @@
     (is (match? {::result/type   :mismatch
                  ::result/value  {:payloads [mismatch?]}
                  ::result/weight number?}
-                (c/match {:payloads [(m/via read-string {:foo :barz})]}
+                (c/match {:payloads [(m/via edn/read-string {:foo :barz})]}
                          {:payloads [1]})))))

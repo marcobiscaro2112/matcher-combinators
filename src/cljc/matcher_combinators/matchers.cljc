@@ -192,7 +192,7 @@
 
          ;; functions are special because they get treated as predicates
          (fn? value)
-         value
+         (pred value)
 
          ;; TODO: all of the built in matchers are records, but users
          ;; define matchers by reifying the Matcher protocol, so this
