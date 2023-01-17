@@ -4,7 +4,7 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
-            [colorize.core :as colorize]
+            #?(:clj [colorize.core :as colorize])
             [matcher-combinators.model :as model]
             [matcher-combinators.printer :as printer]))
 
@@ -51,9 +51,13 @@
     (= (with-out-str (pprint/pprint exp))
        (printer/as-string exp))))
 
+#?(:clj (def one-in-red (colorize/red 1)))
+;; output in cljs is slightly different, because we print everything as a string (which includes double quotes)
+#?(:cljs (def one-in-red "\"[31m1[0m\""))
+
 (deftest test-as-string
   (testing "when an expression can be marked up, uses color tags to as-string in color"
-    (is (= (str "(unexpected " (colorize/red 1) ")\n")
+    (is (= (str "(unexpected " one-in-red ")\n")
            (printer/as-string (list 'unexpected (printer/->ColorTag :red 1)))))
     (testing "when printing a regular expression, just pprint it"
       (is (= "{:aaaaaaaaaaaa [100000000 100000000 100000000 100000000 100000000],\n :bbbbbbbbbbbb [200000000 200000000 200000000 200000000 200000000]}\n"
