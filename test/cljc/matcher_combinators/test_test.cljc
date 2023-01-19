@@ -1,9 +1,11 @@
 (ns matcher-combinators.test-test
-  (:require [clojure.test :refer [are deftest is testing use-fixtures]]
+  (:require #?(:cljs [cljs.core :refer [ExceptionInfo]])
+            [clojure.test :refer [are deftest is testing use-fixtures]]
             [matcher-combinators.matchers :as m]
-            [matcher-combinators.test :refer :all]
+            #?(:clj [matcher-combinators.test :refer :all])
+            #?(:cljs [matcher-combinators.test :refer [match? thrown-match?]])
             [matcher-combinators.test-helpers :as test-helpers :refer [abs-value-matcher]])
-  (:import [clojure.lang ExceptionInfo]))
+  #?(:clj (:import (clojure.lang ExceptionInfo))))
 
 (use-fixtures :once test-helpers/instrument)
 
@@ -33,8 +35,10 @@
       "wrapping the matcher in 'equals' means the top level of 'actual' must have the exact same key/values")
   (is (true? (is (match? 1 1)))
       "match? should return true for a :match")
-  (is (false? (shhh! (is (match? 1 2))))
-      "match? should return false for a :mismatch")
+  #?(:clj
+     ;; with-redefs of do-report does not work reliably in cljs
+     (is (false? (shhh! (is (match? 1 2))))
+         "match? should return false for a :mismatch"))
   (is (match? 1 1))
   (is (match? (m/equals [1 odd?]) [1 3]))
   (is (match? {:a {:b odd?}}
@@ -85,32 +89,38 @@
 ;; DEPRECATED
 ;; - the rest of these tests are for deprecated APIs
 
-(deftest match-with-test
-  (is (match-with? {java.lang.Long abs-value-matcher}
-                   -5
-                   5)))
+#?(:clj
+   (deftest match-with-test
+     (is (match-with? {java.lang.Long abs-value-matcher}
+                      -5
+                      5))))
 
-(defmethod clojure.test/assert-expr 'match-abs-value? [msg form]
-  (build-match-assert 'match-abs-value? {java.lang.Long abs-value-matcher} msg form))
+#?(:clj
+   (defmethod clojure.test/assert-expr 'match-abs-value? [msg form]
+     (build-match-assert 'match-abs-value? {java.lang.Long abs-value-matcher} msg form)))
 
-(deftest custom-assert-expr
-  (is (match-abs-value? - 5)))
+#?(:clj
+   (deftest custom-assert-expr
+     (is (match-abs-value? - 5))))
 
-(deftest match-equals-test
-  (is (match-equals? {:a 1}
-                     {:a 1})))
+#?(:clj
+   (deftest match-equals-test
+     (is (match-equals? {:a 1}
+                        {:a 1}))))
 
-(deftest match-equals-single-eval
-  (testing "in presence of macro expansion, arguments to match-equals? are only evaluated once"
-    (let [arg-count     (atom 0)
-          matcher-count (atom 0)]
-      (is (match-equals? (do (swap! matcher-count inc)
-                             {:a 1})
-                         (do (swap! arg-count inc)
-                             {:a 1})))
-      (is (= 1 @matcher-count @arg-count)))))
+#?(:clj
+   (deftest match-equals-single-eval
+     (testing "in presence of macro expansion, arguments to match-equals? are only evaluated once"
+       (let [arg-count (atom 0)
+             matcher-count (atom 0)]
+         (is (match-equals? (do (swap! matcher-count inc)
+                                {:a 1})
+                            (do (swap! arg-count inc)
+                                {:a 1})))
+         (is (= 1 @matcher-count @arg-count))))))
 
-(deftest match-roughly-test
-  (is (match-roughly? 0.1
-                      {:a 1 :b 3.0}
-                      {:a 1 :b 3.05})))
+#?(:clj
+   (deftest match-roughly-test
+     (is (match-roughly? 0.1
+                         {:a 1 :b 3.0}
+                         {:a 1 :b 3.05}))))
