@@ -58,7 +58,7 @@
                              gen/string
                              gen/symbol
                              gen-float
-                             gen/double
+                             (gen/double* {:NaN? false})
                              gen/symbol-ns
                              gen/keyword
                              gen/boolean
