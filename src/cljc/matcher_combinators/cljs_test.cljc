@@ -10,7 +10,7 @@
             [cljs.test :as t :refer-macros [deftest is]]))
 
 (defn with-file+line-info [report]
-  #?(:cljs (merge (t/file-and-line (js/Error.) 4) report)))
+  #?(:cljs (merge (t/file-and-line (js/Error.) 7) report)))
 
 ;; This technique was copied from https://github.com/tonsky/datascript
 ;; below is the reasoning from the datascript repo:
@@ -37,9 +37,10 @@
          :actual   (symbol (str (count args#) " were provided: " '~form))})
 
        (core/matcher? matcher#)
-       (let [result# (core/match matcher# actual#)]
+       (let [result# (core/match matcher# actual#)
+             match?# (core/indicates-match? result#)]
          (t/do-report
-           (if (core/indicates-match? result#)
+           (if match?#
              {:type     :pass
               :message  ~msg
               :expected '~form
@@ -49,7 +50,8 @@
                 :message  ~msg
                 :expected '~form
                 :actual   (list '~'not (list 'match? matcher# actual#))
-                :markup   (::result/value result#)}))))
+                :markup   (::result/value result#)})))
+         match?#)
        :else
        (t/do-report
          {:type     :fail
@@ -68,37 +70,37 @@
   ;; (is (thrown-with-match? exception-class matcher expr))
   ;; Asserts that evaluating expr throws an exception of class c.
   ;; Also asserts that the exception data satisfies the provided matcher.
-  (let [klass   (nth form 1)
-        matcher (nth form 2)
-        body    (nthnext form 3)]
-    `(try ~@body
-          (let [args# (list ~@(rest form))]
-            (if (not (= 3 (count args#)))
-              (clojure.test/do-report
-               {:type     :fail
-                :message  ~msg
-                :expected (symbol "`thrown-match?` expects 3 arguments: an exception class, a `matcher`, and the `actual`")
-                :actual   (symbol (str (count args#) " were provided: " '~form))})
-              (t/do-report {:type     :fail
-                            :message  ~msg
-                            :expected '~form
-                            :actual   (symbol "the expected exception wasn't thrown")})))
-          (catch ~klass e#
-            (let [result# (core/match ~matcher (ex-data e#))]
-              (t/do-report
-               (if (core/indicates-match? result#)
-                 {:type     :pass
-                  :message  ~msg
-                  :expected '~form
-                  :actual   (list 'thrown-match? ~klass ~matcher '~body)}
-                 (with-file+line-info
-                   {:type     :matcher-combinators/exception-mismatch
+  (let [arity (count (rest form))
+        klass (if (<= arity 2) 'cljs.core/ExceptionInfo (nth form 1))
+        matcher (nth form (dec arity))
+        body (nthnext form (dec arity))]
+    `(if-not (<= 2 ~arity 3)
+       (t/do-report
+        {:type     :fail
+         :message  ~msg
+         :expected (symbol "`thrown-match?` expects 2 or 3 arguments: an optional exception class, a `matcher`, and the `actual`")
+         :actual   (symbol (str ~arity " argument(s) provided: " '~form))})
+       (try ~@body
+            (t/do-report {:type     :fail
+                          :message  ~msg
+                          :expected '~form
+                          :actual   (symbol "the expected exception wasn't thrown")})
+            (catch ~klass e#
+              (let [result# (core/match ~matcher (ex-data e#))]
+                (t/do-report
+                 (if (core/indicates-match? result#)
+                   {:type     :pass
                     :message  ~msg
                     :expected '~form
-                    :actual   (list '~'not (list 'thrown-match? ~klass ~matcher '~body))
-                    :ex-class ~klass
-                    :markup   (::result/value result#)}))))
-            e#))))))
+                    :actual   (list 'thrown-match? ~klass ~matcher '~body)}
+                   (with-file+line-info
+                    {:type     :matcher-combinators/exception-mismatch
+                     :message  ~msg
+                     :expected '~form
+                     :actual   (list '~'not (list 'thrown-match? ~klass ~matcher '~body))
+                     :ex-class ~klass
+                     :markup   (::result/value result#)}))))
+              e#)))))))
 
 #?(:cljs (do
 (defmethod t/report [::t/default :matcher-combinators/exception-mismatch] [m]
