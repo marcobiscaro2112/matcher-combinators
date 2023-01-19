@@ -1,15 +1,13 @@
 (ns matcher-combinators.cljs-example-test
-  (:require [clojure.test :refer [deftest testing is are]]
+  (:require [clojure.test :refer [are deftest is testing]]
+            [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
-            [clojure.test.check.clojure-test :refer [defspec]]
-            [matcher-combinators.standalone :as standalone]
-            [matcher-combinators.parser]
             [matcher-combinators.matchers :as m]
-            [matcher-combinators.core :as c]
-            [matcher-combinators.test]
-            [matcher-combinators.test-helpers :as helpers])
-  (:import [goog.Uri]))
+            [matcher-combinators.parser]
+            [matcher-combinators.standalone :as standalone]
+            [matcher-combinators.test :refer [match?]])
+  (:import (goog.Uri)))
 
 (def gen-any-equatable
   (gen/one-of [gen/any-equatable
@@ -50,6 +48,8 @@
 (deftest exception-matching
   (is (thrown-match? ExceptionInfo
                      {:foo 1}
+                     (bang!)))
+  (is (thrown-match? {:foo 1}
                      (bang!))))
 
 (comment
